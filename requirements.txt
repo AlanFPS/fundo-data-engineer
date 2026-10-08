@@ -1,0 +1,4 @@
+pymssql==2.3.*
+duckdb==1.4.*
+pyarrow==21.*
+pytest==8.*

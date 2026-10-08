@@ -1,0 +1,12 @@
+# Runs the README's commands from a clean checkout on x86 Linux, where SQL Server 2022 runs natively.
+name: demo
+on: [push, workflow_dispatch]
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make test
+      - run: make demo
+      - run: make check
+      - run: make seed && make down  # host-side cleanup must work on Linux, where files are not remapped

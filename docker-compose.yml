@@ -1,0 +1,43 @@
+name: fundo-de
+
+services:
+  # Source: SQL Server 2022 Developer edition. The image is amd64-only; on Apple
+  # Silicon it needs Rosetta (Docker Desktop: on by default). See README if it
+  # crashes with "Unable to create a new asynchronous I/O context".
+  mssql:
+    image: ${MSSQL_IMAGE:-mcr.microsoft.com/mssql/server:2022-latest}
+    platform: ${MSSQL_PLATFORM:-linux/amd64}
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-Fundo_local_2026!}
+    ports:
+      - "127.0.0.1:${MSSQL_PORT:-14330}:1433"  # loopback only: the sa password is in the README
+    volumes:
+      - mssql-data:/var/opt/mssql
+    healthcheck:
+      # Port check only (not every image ships sqlcmd); the app retries the login.
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/1433'"]
+      interval: 3s
+      timeout: 3s
+      retries: 60
+
+  # Pipeline, seeding, checks and dedupe all run from this image. `docker compose up`
+  # does not start it; the Makefile runs it with `docker compose run --rm app ...`.
+  app:
+    build: .
+    profiles: ["tools"]
+    user: "${HOST_UID:-0}:${HOST_GID:-0}"  # the Makefile passes your uid, so files in data/ stay yours
+    depends_on:
+      mssql:
+        condition: service_healthy
+    environment:
+      MSSQL_HOST: mssql
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-Fundo_local_2026!}
+      WAREHOUSE_PATH: /app/data/warehouse.duckdb
+      FUNDO_ALLOW_RESET: "1"  # seed/demo/break may only drop data on this compose stack's server
+    volumes:
+      - ./:/app
+
+volumes:
+  mssql-data:
